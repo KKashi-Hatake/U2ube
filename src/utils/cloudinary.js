@@ -8,7 +8,7 @@ cloudinary.config({
 });
 
 
-const upload = async function (filePath) {
+const uploadOnCloudinary = async function (filePath) {
     try {
         if (!filePath) return null;
         const response = await cloudinary.uploader.upload(filePath,
@@ -24,4 +24,4 @@ const upload = async function (filePath) {
 }
 
 
-export default upload
+export default uploadOnCloudinary

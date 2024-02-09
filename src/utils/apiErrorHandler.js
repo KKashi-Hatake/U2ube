@@ -1,9 +1,9 @@
 class apiErrorHandler extends Error{
     constructor(
         statusCode,
+        message="Something Went Wrong",
         errors=[],
         stack,
-        message="Something Went Weong"
     ){
         super(message)
         this.statusCode=statusCode

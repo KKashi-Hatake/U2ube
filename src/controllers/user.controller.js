@@ -3,6 +3,7 @@ import apiErrorHandler from '../utils/apiErrorHandler.js';
 import { User } from "../models/user.model.js"
 import uploadOnCloudinary from "../utils/cloudinary.js"
 import apiResponseHandler from "../utils/apiResponseHandler.js"
+import jwt, { decode } from 'jsonwebtoken'
 
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -68,7 +69,7 @@ export const registerUser = asyncHandler(async (req, res) => {
 
 export const loginUser = asyncHandler(async (req, res) => {
     const { username, email, password } = req.body;
-    if (!username || !email) {
+    if (!(username || email)) {
         throw new apiErrorHandler(400, "username or email is required.")
     }
     const user = await User.findOne({
@@ -81,45 +82,83 @@ export const loginUser = asyncHandler(async (req, res) => {
     if (!isPasswordValid) {
         throw new apiErrorHandler(401, "Invalid User Credentials.")
     }
-    const {accessToken, refreshToken}=await generateAccessAndRefreshToken(user._id);
-    const options={
-        httpOnly:true,
-        secure:true
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
+    const options = {
+        httpOnly: true,
+        secure: true
     }
+    delete (user.password)
     res
-    .status(200)
-    .cookie("accessToken", accessToken)
-    .cookie("refreshToken", refreshToken)
-    .json(
-        new apiResponseHandler(
-            201,
-            "Logged in successfully",
-            delete(user.password)
+        .status(200)
+        .cookie("accessToken", accessToken)
+        .cookie("refreshToken", refreshToken)
+        .json(
+            new apiResponseHandler(
+                201,
+                "Logged in successfully",
+                user
+            )
         )
-    )
 
 
 })
 
-export const logoutUser=apiErrorHandler(async(req,res)=>{
+export const logoutUser = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set:{refreshToken:undefined}
+            $set: { refreshToken: undefined }
         },
         {
-            new:true
+            new: true
         }
     )
-    const options={
-        httpOnly:true,
-        secure:true
+    const options = {
+        httpOnly: true,
+        secure: true
     }
     res
-    .status(200)
-    .clearCookie("accessToken", options)
-    .clearCookie("refreshToken", options)
-    .json(new apiResponseHandler(200, "User logged out"))
+        .status(200)
+        .clearCookie("accessToken", options)
+        .clearCookie("refreshToken", options)
+        .json(new apiResponseHandler(200, "User logged out"))
 
 })
 
+export const refreshAccessToken = asyncHandler(async (req, res) => {
+    try {
+        const incomingRfreshToken = req.cookie?.refreshToken || req.body?.refreshToken;
+        if (!incomingRfreshToken) {
+            throw new apiErrorHandler(401, "Unauthorized Token")
+        }
+        const decodedToken = jwt.verify(incomingRfreshToken, process.env.REFRESH_TOKEN_SECRET)
+        if (!decodedToken) {
+            throw new apiErrorHandler(401, "Invalid Refresh Token")
+        }
+        const user = await User.findById(decodedToken?._id);
+        if (!user) {
+            throw new apiErrorHandler(401, "Invalid Refresh Token")
+        }
+        if (incomingRfreshToken !== user?.refreshToken) {
+            throw new apiErrorHandler(401, "Refresh Token is used or expired")
+        }
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+        const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
+        res.status(200)
+            .cookie("refreshToken", refreshToken)
+            .cookie("accessToken", accessToken)
+            .json(
+                new apiResponseHandler(
+                    200,
+                    "Access Token is refreshed",
+                    { accessToken, refreshToken }
+                )
+            )
+
+    } catch (error) {
+        throw new apiErrorHandler(401, "Refresh Token Invalid")
+    }
+})

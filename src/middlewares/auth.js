@@ -1,11 +1,11 @@
 import jwt from "jsonwebtoken";
-import apiErrorHandler from "../utils/apiErrorHandler";
-import asyncHandler from "../utils/asyncHandler";
-import { User } from "../models/user.model";
+import apiErrorHandler from "../utils/apiErrorHandler.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import { User } from "../models/user.model.js";
 
 
 
-export default auth = asyncHandler(async (req, _, next) => {
+export const auth = asyncHandler(async (req, _, next) => {
     try {
         const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
         if (!token) {

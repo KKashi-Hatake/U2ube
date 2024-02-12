@@ -3,7 +3,7 @@ import apiErrorHandler from '../utils/apiErrorHandler.js';
 import { User } from "../models/user.model.js"
 import uploadOnCloudinary from "../utils/cloudinary.js"
 import apiResponseHandler from "../utils/apiResponseHandler.js"
-import jwt, { decode } from 'jsonwebtoken'
+import jwt from 'jsonwebtoken'
 import mongoose from 'mongoose';
 
 
@@ -88,11 +88,14 @@ export const loginUser = asyncHandler(async (req, res) => {
         httpOnly: true,
         secure: true
     }
+    user.refreshToken=refreshToken;
+    user.save({validateBeforeSave:false})
     delete (user.password)
+    delete (user.refreshToken)
     res
         .status(200)
-        .cookie("accessToken", accessToken)
-        .cookie("refreshToken", refreshToken)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
         .json(
             new apiResponseHandler(
                 201,
@@ -128,11 +131,11 @@ export const logoutUser = asyncHandler(async (req, res) => {
 
 export const refreshAccessToken = asyncHandler(async (req, res) => {
     try {
-        const incomingRfreshToken = req.cookie?.refreshToken || req.body?.refreshToken;
-        if (!incomingRfreshToken) {
+        const incomingRefreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+        if (!incomingRefreshToken) {
             throw new apiErrorHandler(401, "Unauthorized Token")
         }
-        const decodedToken = jwt.verify(incomingRfreshToken, process.env.REFRESH_TOKEN_SECRET)
+        const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
         if (!decodedToken) {
             throw new apiErrorHandler(401, "Invalid Refresh Token")
         }
@@ -140,7 +143,7 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
         if (!user) {
             throw new apiErrorHandler(401, "Invalid Refresh Token")
         }
-        if (incomingRfreshToken !== user?.refreshToken) {
+        if (incomingRefreshToken !== user?.refreshToken) {
             throw new apiErrorHandler(401, "Refresh Token is used or expired")
         }
         const options = {
@@ -220,6 +223,7 @@ export const getChannelDetails = asyncHandler(async (req, res) => {
             }
         }
     ])
+    console.log(channel)
     if (!channel?.length) {
         throw new apiErrorHandler(404, "Channel does not exists")
     }
@@ -239,7 +243,7 @@ export const getWatchHistory = asyncHandler(async (req, res) => {
     const user = await User.aggregate([
         {
             $match: {
-                _id: mongoose.Types.ObjectId(req.user?._id)
+                _id: new mongoose.Types.ObjectId(req.user?._id)
             }
         },
         {
@@ -290,7 +294,7 @@ export const changeCurrentPassword = asyncHandler(async (req, res) => {
         throw new apiErrorHandler(400, "all fields are required.")
     }
     const user = await User.findById(req.user?._id);
-    const isPasswordValid = await user.isPasswordCorrect(oldPassword);
+    const isPasswordValid = await user.isPasswordCorrect(originalPassword);
     if (!isPasswordValid) {
         throw new apiErrorHandler(400, "Old password is not correct.")
     }
@@ -374,7 +378,7 @@ export const updateCoverImage = asyncHandler(async(req,res)=>{
     }
     const user =await User.findByIdAndUpdate(req.user?._id,{
         $set:{
-            coverImage:avcoverImageatar?.url
+            coverImage:coverImage?.url
         }
     },{
         new:true

@@ -1,7 +1,7 @@
 import Router from "express"
 import { changeCurrentPassword, getChannelDetails, getCurrentUser, getWatchHistory, loginUser, logoutUser, refreshAccessToken, registerUser, updateAccountDetails, updateAvatar, updateCoverImage } from '../controllers/user.controller.js'
 import { upload } from "../middlewares/multer.middleware.js"
-import { auth } from "../middlewares/auth.js";
+import { auth } from "../middlewares/auth.middleware.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { Subscription } from '../models/subscriber.model.js'
 
